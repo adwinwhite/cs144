@@ -10,6 +10,16 @@
 //! and then no more bytes can be written.
 class ByteStream {
   private:
+    size_t tot_capacity;
+    size_t used_buffer_size;
+    size_t unread_start;
+    size_t unread_end;
+    std::string buffer;
+    size_t num_bytes_read;
+    size_t num_bytes_written;
+    bool _ended{};
+    bool _full{};
+
     // Your code here -- add private members as necessary.
 
     // Hint: This doesn't need to be a sophisticated data structure at
@@ -19,9 +29,12 @@ class ByteStream {
 
     bool _error{};  //!< Flag indicating that the stream suffered an error.
 
+    size_t _write(const std::string &data);
+    std::string _read(const size_t len);
+
   public:
     //! Construct a stream with room for `capacity` bytes.
-    ByteStream(const size_t capacity);
+    ByteStream(const size_t capacity) : tot_capacity(capacity), used_buffer_size(0), unread_start(0), unread_end(0), buffer(std::string(capacity, ' ')), num_bytes_read(0), num_bytes_written(0), _ended(false), _full(false), _error(false) {};
 
     //! \name "Input" interface for the writer
     //!@{
@@ -34,11 +47,15 @@ class ByteStream {
     //! \returns the number of additional bytes that the stream has space for
     size_t remaining_capacity() const;
 
+    size_t total_capacity() const { return tot_capacity; }
+
     //! Signal that the byte stream has reached its ending
-    void end_input();
+    void end_input() { _ended = true; }
 
     //! Indicate that the stream suffered an error.
     void set_error() { _error = true; }
+
+    bool is_full() const { return _full; }
     //!@}
 
     //! \name "Output" interface for the reader
