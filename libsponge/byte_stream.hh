@@ -31,6 +31,7 @@ class ByteStream {
 
     size_t _write(const std::string &data);
     std::string _read(const size_t len);
+    size_t _pop(const size_t len);
 
   public:
     //! Construct a stream with room for `capacity` bytes.
@@ -55,7 +56,7 @@ class ByteStream {
     //! Indicate that the stream suffered an error.
     void set_error() { _error = true; }
 
-    bool is_full() const { return _full; }
+    bool is_full() const;
     //!@}
 
     //! \name "Output" interface for the reader
