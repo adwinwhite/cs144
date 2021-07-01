@@ -1,8 +1,8 @@
 #ifndef SPONGE_LIBSPONGE_BYTE_STREAM_HH
 #define SPONGE_LIBSPONGE_BYTE_STREAM_HH
 
-#include <string>
 
+#include "circular_buffer.hh"
 //! \brief An in-order byte stream.
 
 //! Bytes are written on the "input" side and read from the "output"
@@ -10,32 +10,17 @@
 //! and then no more bytes can be written.
 class ByteStream {
   private:
-    size_t tot_capacity;
-    size_t used_buffer_size;
-    size_t unread_start;
-    size_t unread_end;
-    std::string buffer;
+    CircularBuffer buf_;
     size_t num_bytes_read;
     size_t num_bytes_written;
-    bool _ended{};
-    bool _full{};
+    bool ended_{};
 
-    // Your code here -- add private members as necessary.
+    bool error_{};  //!< Flag indicating that the stream suffered an error.
 
-    // Hint: This doesn't need to be a sophisticated data structure at
-    // all, but if any of your tests are taking longer than a second,
-    // that's a sign that you probably want to keep exploring
-    // different approaches.
-
-    bool _error{};  //!< Flag indicating that the stream suffered an error.
-
-    size_t _write(const std::string &data);
-    std::string _read(const size_t len);
-    size_t _pop(const size_t len);
 
   public:
     //! Construct a stream with room for `capacity` bytes.
-    ByteStream(const size_t capacity) : tot_capacity(capacity), used_buffer_size(0), unread_start(0), unread_end(0), buffer(std::string(capacity, ' ')), num_bytes_read(0), num_bytes_written(0), _ended(false), _full(false), _error(false) {};
+    ByteStream(const size_t capacity) : buf_(capacity), num_bytes_read(0), num_bytes_written(0), ended_(false), error_(false) {};
 
     //! \name "Input" interface for the writer
     //!@{
@@ -48,16 +33,12 @@ class ByteStream {
     //! \returns the number of additional bytes that the stream has space for
     size_t remaining_capacity() const;
 
-    size_t total_capacity() const { return tot_capacity; }
-
     //! Signal that the byte stream has reached its ending
-    void end_input() { _ended = true; }
+    void end_input();
 
     //! Indicate that the stream suffered an error.
-    void set_error() { _error = true; }
+    void set_error();
 
-    bool is_full() const;
-    //!@}
 
     //! \name "Output" interface for the reader
     //!@{
@@ -77,7 +58,7 @@ class ByteStream {
     bool input_ended() const;
 
     //! \returns `true` if the stream has suffered an error
-    bool error() const { return _error; }
+    bool error() const;
 
     //! \returns the maximum amount that can currently be read from the stream
     size_t buffer_size() const;
@@ -98,6 +79,8 @@ class ByteStream {
     //! Total number of bytes popped
     size_t bytes_read() const;
     //!@}
+    //
+    size_t total_capacity() const;
 };
 
 #endif  // SPONGE_LIBSPONGE_BYTE_STREAM_HH
