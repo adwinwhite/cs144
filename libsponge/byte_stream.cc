@@ -10,11 +10,11 @@
 
 using namespace std;
 
-size_t ByteStream::write(const string &data) {
+size_t ByteStream::write(const string &data, const size_t offset) {
     if (input_ended() || error()) {
         return 0;
     }
-    size_t len = buf_.write(data);
+    size_t len = buf_.write(data, offset);
     num_bytes_written += len;
     return len;
 }
@@ -46,6 +46,7 @@ std::string ByteStream::read(const size_t len) {
     return read_string;
 }
 
+void ByteStream::end_input() { ended_ = true; }
 
 bool ByteStream::input_ended() const { return ended_; }
 
@@ -54,6 +55,8 @@ size_t ByteStream::buffer_size() const { return buf_.used_size(); }
 bool ByteStream::buffer_empty() const { return buf_.empty(); }
 
 bool ByteStream::eof() const { return ended_ && buf_.empty(); }
+
+bool ByteStream::error() const { return error_; }
 
 size_t ByteStream::bytes_written() const { return num_bytes_written; }
 

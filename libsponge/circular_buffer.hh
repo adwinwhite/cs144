@@ -15,7 +15,7 @@ class CircularBuffer {
   public:
     CircularBuffer(const size_t size) : max_size_(size), tail_(0), head_(0), buf_(std::string(size, ' ')),  full_(false) {};
 
-    size_t write(const std::string &data);
+    size_t write(const std::string &data, const size_t offset = 0);
 
     std::string read(const size_t len);
 
