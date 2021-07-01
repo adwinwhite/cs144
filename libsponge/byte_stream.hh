@@ -22,13 +22,15 @@ class ByteStream {
     //! Construct a stream with room for `capacity` bytes.
     ByteStream(const size_t capacity) : buf_(capacity), num_bytes_read(0), num_bytes_written(0), ended_(false), error_(false) {};
 
+    CircularBuffer& get_buffer();
+
     //! \name "Input" interface for the writer
     //!@{
 
     //! Write a string of bytes into the stream. Write as many
     //! as will fit, and return how many were written.
     //! \returns the number of bytes accepted into the stream
-    size_t write(const std::string &data, const size_t offset = 0);
+    size_t write(const std::string &data, const bool count = true);
 
     //! \returns the number of additional bytes that the stream has space for
     size_t remaining_capacity() const;

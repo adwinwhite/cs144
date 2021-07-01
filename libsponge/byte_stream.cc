@@ -10,12 +10,18 @@
 
 using namespace std;
 
-size_t ByteStream::write(const string &data, const size_t offset) {
+CircularBuffer& ByteStream::get_buffer()  {
+    return buf_;
+}
+
+size_t ByteStream::write(const string &data, const bool count) {
     if (input_ended() || error()) {
         return 0;
     }
-    size_t len = buf_.write(data, offset);
-    num_bytes_written += len;
+    size_t len = buf_.write(data);
+    if (count) {
+        num_bytes_written += len;
+    }
     return len;
 }
 
@@ -61,3 +67,5 @@ bool ByteStream::error() const { return error_; }
 size_t ByteStream::bytes_written() const { return num_bytes_written; }
 
 size_t ByteStream::bytes_read() const { return num_bytes_read; }
+
+size_t ByteStream::total_capacity() const { return buf_.capacity(); }
