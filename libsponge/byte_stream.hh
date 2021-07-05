@@ -16,11 +16,12 @@ class ByteStream {
     bool ended_{};
 
     bool error_{};  //!< Flag indicating that the stream suffered an error.
+    bool eof_{};
 
 
   public:
     //! Construct a stream with room for `capacity` bytes.
-    ByteStream(const size_t capacity) : buf_(capacity), num_bytes_read(0), num_bytes_written(0), ended_(false), error_(false) {};
+    ByteStream(const size_t capacity) : buf_(capacity), num_bytes_read(0), num_bytes_written(0), ended_(false), error_(false), eof_{false} {};
 
     CircularBuffer& get_buffer();
 
@@ -69,6 +70,10 @@ class ByteStream {
     bool buffer_empty() const;
 
     //! \returns `true` if the output has reached the ending
+    //
+
+
+
     bool eof() const;
     //!@}
 
@@ -77,6 +82,8 @@ class ByteStream {
 
     //! Total number of bytes written
     size_t bytes_written() const;
+
+    void _offset_bytes_written(const int64_t num);
 
     //! Total number of bytes popped
     size_t bytes_read() const;

@@ -26,7 +26,7 @@ class CircularBuffer {
 
     std::string read(const size_t len);
 
-    std::string peek(const size_t len) const;
+    std::string peek(const size_t len, const size_t offset = 0) const;
 
     size_t pop(const size_t len);
 

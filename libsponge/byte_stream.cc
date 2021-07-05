@@ -15,15 +15,17 @@ CircularBuffer& ByteStream::get_buffer()  {
 }
 
 size_t ByteStream::write(const string &data, const bool count) {
-    if (input_ended() || error()) {
-        return 0;
-    }
+    //Fuck, write anyway.
+    // if (input_ended() || error()) {
+        // return 0;
+    // }
     size_t len = buf_.write(data);
     if (count) {
         num_bytes_written += len;
     }
     return len;
 }
+
 
 
 
@@ -52,7 +54,10 @@ std::string ByteStream::read(const size_t len) {
     return read_string;
 }
 
-void ByteStream::end_input() { ended_ = true; }
+void ByteStream::end_input() {
+    ended_ = true;
+}
+
 
 bool ByteStream::input_ended() const { return ended_; }
 
@@ -60,11 +65,18 @@ size_t ByteStream::buffer_size() const { return buf_.used_size(); }
 
 bool ByteStream::buffer_empty() const { return buf_.empty(); }
 
+// bool ByteStream::eof() const { return ended_ && buf_.empty(); }
 bool ByteStream::eof() const { return ended_ && buf_.empty(); }
+
 
 bool ByteStream::error() const { return error_; }
 
 size_t ByteStream::bytes_written() const { return num_bytes_written; }
+
+void ByteStream::_offset_bytes_written(const int64_t num) {
+    //Maybe some checks should be added
+    num_bytes_written += num;
+}
 
 size_t ByteStream::bytes_read() const { return num_bytes_read; }
 

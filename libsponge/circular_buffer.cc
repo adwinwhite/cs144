@@ -110,29 +110,32 @@ size_t CircularBuffer::write(const string &data) {
 
 
 
-string CircularBuffer::peek(const size_t len) const {
+string CircularBuffer::peek(const size_t len, const size_t offset) const {
     // When there is nothing to pop, just return 0.
-    if (empty() || len == 0) {
-        return "";
-    }
+    // if (empty() || len == 0) {
+        // return "";
+    // }
+
+    // Offset should be smaller than capacity
+    size_t fake_tail = (tail_ + offset) % max_size_;
 
     std::string read_string;
-    if (head_ > tail_) {
-        if (len > head_ - tail_) {
-            read_string = buf_.substr(tail_, head_ - tail_);
+    if (head_ > fake_tail) {
+        if (len > head_ - fake_tail) {
+            read_string = buf_.substr(fake_tail, head_ - fake_tail);
         } else {
-            read_string = buf_.substr(tail_, len);
+            read_string = buf_.substr(fake_tail, len);
         }
     } else {
-        size_t tail_size = buf_.size() - tail_;
-        if (len >= tail_size) {
-            if (len - tail_size >= head_) {
-                read_string = buf_.substr(tail_, tail_size) + buf_.substr(0, head_);
+        size_t fake_tailsize = buf_.size() - fake_tail;
+        if (len >= fake_tailsize) {
+            if (len - fake_tailsize >= head_) {
+                read_string = buf_.substr(fake_tail, fake_tailsize) + buf_.substr(0, head_);
             } else {
-                read_string = buf_.substr(tail_, tail_size) + buf_.substr(0, len - tail_size);
+                read_string = buf_.substr(fake_tail, fake_tailsize) + buf_.substr(0, len - fake_tailsize);
             }
         } else {
-            read_string = buf_.substr(tail_, len);
+            read_string = buf_.substr(fake_tail, len);
         }
     }
     return read_string;

@@ -12,53 +12,96 @@
 
 using namespace std;
 
-StreamReassembler::StreamReassembler(const size_t capacity) : intervals_(vector<uint64_t>(2, 0)), stream_(ByteStream(capacity)), eof_(false), final_index(0) {}
+StreamReassembler::StreamReassembler(const size_t capacity) : intervals_(vector<uint64_t>(2, 0)), stream_(ByteStream(capacity)) {}
 
 //! \details This function accepts a substring (aka a segment) of bytes,
 //! possibly out-of-order, from the logical stream, and assembles any newly
 //! contiguous substrings and writes them into the output stream in order.
 void StreamReassembler::push_substring(const string &data, const size_t index, const bool eof) {
+    //What if the first string does not start at 0?
 
-    //First check whether there is overlapping
-    //It seems I got it wrong. overlapping is allowed? yes.
 
-    //Write to get actuall length
-    //Find out where to write according to index
-    size_t new_size = index - intervals_[0];
-    //If there is something to write
-    if (new_size < stream_.total_capacity() && index + data.size() > intervals_[1]) {
-        size_t actual_len;
-        if (new_size > stream_.total_capacity() - stream_.remaining_capacity()) {
-            //Do not count bytes written here. Not assembled, just stored.
-            stream_.get_buffer().resize(new_size, false);
-            actual_len = stream_.write(data, false);
-        } else {
-            actual_len = stream_.write(data.substr(intervals_[1] - index));
+
+    //OUT: new_intervals, new_buffer, new_num_bytes_written
+
+    //No need to do anything if data is already written
+    if (index + data.size() <= intervals_[1]) {
+        if (eof) {
+            stream_.end_input();
         }
-        //Recompute intervals
-        //Filter out interval contained by data
-        intervals_.erase(remove_if(begin(intervals_), end(intervals_), [index, actual_len](uint64_t x){ return x >= index && x <= index + actual_len; }), end(intervals_));
-        intervals_.push_back(index);
-        intervals_.push_back(index + actual_len);
-        sort(intervals_.begin(), intervals_.end());
-        size_t left_ind_in_intervals = find(intervals_.begin(), intervals_.end(), index) - intervals_.begin();
-        if (left_ind_in_intervals % 2 != 0) {
-            intervals_.erase(intervals_.begin() + left_ind_in_intervals - 1);
-        } else {
-            size_t right_ind_in_intervals = find(intervals_.begin(), intervals_.end(), index + actual_len) - intervals_.begin();
-            if (intervals_.size() % 2 != 0) {
-                intervals_.erase(intervals_.begin() + right_ind_in_intervals + 1);
-            }
+        return;
+    }
+
+    //Truncate exceeded head and tail data
+    //OUT: actual_index, actual_data
+    size_t actual_index = index;
+    string actual_data = data;
+    if (index < intervals_[1]) {
+        actual_index = intervals_[1];
+        actual_data = data.substr(intervals_[1] - index);
+    }
+    if (actual_index + actual_data.size() > intervals_[0] + stream_.total_capacity()) {
+        actual_data = actual_data.substr(0, intervals_[0] + stream_.total_capacity() - actual_index);
+    }
+
+    //Recompute intervals
+    //IN: intervals_, actual_index, actual_data
+    //OUT: new_intervals
+
+    //Find intervals contained by data
+    //IN: index, actual_len, intervals_
+    //OUT: indices of nearest boundaries inclusively
+    size_t ind_left = intervals_.size();
+    for (size_t i = 0; i < intervals_.size(); ++i) {
+        if (intervals_[i] >= actual_index) {
+            ind_left = i;
+            break;
+        }
+    }
+    size_t ind_right = 0;
+    for (size_t i = intervals_.size() - 1; i != 0; --i) {
+        if (intervals_[i] <= actual_index + actual_data.size()) {
+            ind_right = i;
+            break;
         }
     }
 
+    //Check whether tail is extended
+    //IN: index, actual_data, contained_intervals, stream
+    //OUT: new_actual_data
+    if (ind_right % 2 == 0) {
+        actual_data += stream_.get_buffer().peek(intervals_[ind_right + 1] - (actual_index + actual_data.size()), actual_index + actual_data.size() - intervals_[0]);
+    }
+
+    //Write actual_data to buffer
+    //IN: actual_data, buffer, num_bytes_written
+    //OUT: new_buffer, num_bytes_written
+    if (actual_index == intervals_[1]) {
+        stream_.write(actual_data);
+    } else {
+        stream_.get_buffer().resize(actual_index - intervals_[0], false);
+        stream_.write(actual_data, false);
+        stream_.get_buffer().resize(intervals_[1] - intervals_[0], false);
+    }
+
+    //Recompute intervals
+    //IN: intervals_, nearest boundaries
+    //OUT: new_intervals
+    if (ind_right % 2 == 1) {
+        intervals_.insert(intervals_.begin() + ind_right + 1, actual_index + actual_data.size());
+    }
+    intervals_.erase(intervals_.begin() + ind_left, intervals_.begin() + ind_right + 1);
+    if (ind_left % 2 == 0) {
+        intervals_.insert(intervals_.begin() + ind_left, actual_index);
+    }
+
+    // intervals_.erase(remove_if(begin(intervals_), end(intervals_), [actual_index, actual_len](uint64_t x){ return x >= actual_index && x <= actual_index + actual_len; }), end(intervals_));
 
     //To be honest, I have no idea how eof works here,
     //Should I end input once receiving an eof? Or when obtaining a complete stream?
     //If there is no byte written, should the eof count?
-    if (eof) {
-        eof_ = true;
-        final_index = index + data.size();
+    if (eof && intervals_[1] == index + data.size()) {
+        //End input only when all data are written and eof is true
         stream_.end_input();
     }
 
