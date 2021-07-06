@@ -17,6 +17,8 @@ class StreamReassembler {
     // std::vector<std::tuple<uint64_t, uint64_t>> intervals_;
     std::vector<uint64_t> intervals_;
     ByteStream stream_;  //!< The reassembled in-order byte stream
+    size_t end_index_;
+    bool eof_received_;
 
   public:
     //! \brief Construct a `StreamReassembler` that will store up to `capacity` bytes.

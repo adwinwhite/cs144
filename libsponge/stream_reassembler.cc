@@ -12,24 +12,37 @@
 
 using namespace std;
 
-StreamReassembler::StreamReassembler(const size_t capacity) : intervals_(vector<uint64_t>(2, 0)), stream_(ByteStream(capacity)) {}
+StreamReassembler::StreamReassembler(const size_t capacity) : intervals_(vector<uint64_t>(2, 0)), stream_(ByteStream(capacity)), end_index_(0), eof_received_(false) {}
 
 //! \details This function accepts a substring (aka a segment) of bytes,
 //! possibly out-of-order, from the logical stream, and assembles any newly
 //! contiguous substrings and writes them into the output stream in order.
 void StreamReassembler::push_substring(const string &data, const size_t index, const bool eof) {
     //What if the first string does not start at 0?
+    //When does it become at eof?
+    //When reading if all bytes are read and eof has been received.
 
+    //read and push both change intervals_
+    //and we have no way of controlling reading
+    //keep them in sync here
+    //intervals_[0] == bytes_read
+    //intervals_[1] == bytes_written
+    intervals_[0] = stream_.bytes_read();
 
 
     //OUT: new_intervals, new_buffer, new_num_bytes_written
 
     //No need to do anything if data is already written
-    if (index + data.size() <= intervals_[1]) {
-        if (eof) {
-            stream_.end_input();
-        }
+    if (index + data.size() < intervals_[1]) {
         return;
+    }
+
+    //Check whether eof is received
+    //IN: eof, data, index
+    //OUT: eof_received_, end_index_
+    if ((!eof_received_) && eof) {
+        eof_received_ = true;
+        end_index_ = index + data.size();
     }
 
     //Truncate exceeded head and tail data
@@ -100,7 +113,7 @@ void StreamReassembler::push_substring(const string &data, const size_t index, c
     //To be honest, I have no idea how eof works here,
     //Should I end input once receiving an eof? Or when obtaining a complete stream?
     //If there is no byte written, should the eof count?
-    if (eof && intervals_[1] == index + data.size()) {
+    if (eof_received_ && intervals_[1] == end_index_) {
         //End input only when all data are written and eof is true
         stream_.end_input();
     }
