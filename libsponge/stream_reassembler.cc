@@ -57,9 +57,6 @@ void StreamReassembler::push_substring(const string &data, const size_t index, c
         actual_data = actual_data.substr(0, intervals_[0] + stream_.total_capacity() - actual_index);
     }
 
-    //Recompute intervals
-    //IN: intervals_, actual_index, actual_data
-    //OUT: new_intervals
 
     //Find intervals contained by data
     //IN: index, actual_len, intervals_
