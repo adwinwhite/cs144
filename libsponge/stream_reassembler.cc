@@ -12,7 +12,7 @@
 
 using namespace std;
 
-StreamReassembler::StreamReassembler(const size_t capacity) : intervals_(vector<uint64_t>(2, 0)), stream_(ByteStream(capacity)), end_index_(0), eof_received_(false) {}
+StreamReassembler::StreamReassembler(const size_t capacity) : intervals_(vector<uint64_t>(1, 0)), stream_(ByteStream(capacity)), end_index_(0), eof_received_(false) {}
 
 //! \details This function accepts a substring (aka a segment) of bytes,
 //! possibly out-of-order, from the logical stream, and assembles any newly
@@ -27,13 +27,13 @@ void StreamReassembler::push_substring(const string &data, const size_t index, c
     //keep them in sync here
     //intervals_[0] == bytes_read
     //intervals_[1] == bytes_written
-    intervals_[0] = stream_.bytes_read();
+    // intervals_[0] = stream_.bytes_read();
 
 
     //OUT: new_intervals, new_buffer, new_num_bytes_written
 
     //No need to do anything if data is already written
-    if (index + data.size() < intervals_[1]) {
+    if (index + data.size() < stream_.bytes_written()) {
         return;
     }
 
@@ -49,12 +49,12 @@ void StreamReassembler::push_substring(const string &data, const size_t index, c
     //OUT: actual_index, actual_data
     size_t actual_index = index;
     string actual_data = data;
-    if (index < intervals_[1]) {
-        actual_index = intervals_[1];
-        actual_data = data.substr(intervals_[1] - index);
+    if (index < stream_.bytes_written()) {
+        actual_index = stream_.bytes_written();
+        actual_data = data.substr(stream_.bytes_written() - index);
     }
-    if (actual_index + actual_data.size() > intervals_[0] + stream_.total_capacity()) {
-        actual_data = actual_data.substr(0, intervals_[0] + stream_.total_capacity() - actual_index);
+    if (actual_index + actual_data.size() > stream_.bytes_read() + stream_.total_capacity()) {
+        actual_data = actual_data.substr(0, stream_.bytes_read() + stream_.total_capacity() - actual_index);
     }
 
 
@@ -62,16 +62,16 @@ void StreamReassembler::push_substring(const string &data, const size_t index, c
     //IN: index, actual_len, intervals_
     //OUT: indices of nearest boundaries inclusively
     size_t ind_left = intervals_.size();
+    size_t ind_right = 0;
     for (size_t i = 0; i < intervals_.size(); ++i) {
         if (intervals_[i] >= actual_index) {
             ind_left = i;
             break;
         }
     }
-    size_t ind_right = 0;
-    for (size_t i = intervals_.size() - 1; i != 0; --i) {
-        if (intervals_[i] <= actual_index + actual_data.size()) {
-            ind_right = i;
+    for (size_t i = intervals_.size(); i != 0; --i) {
+        if (intervals_[i - 1] <= actual_index + actual_data.size()) {
+            ind_right = i - 1;
             break;
         }
     }
@@ -79,29 +79,31 @@ void StreamReassembler::push_substring(const string &data, const size_t index, c
     //Check whether tail is extended
     //IN: index, actual_data, contained_intervals, stream
     //OUT: new_actual_data
-    if (ind_right % 2 == 0) {
-        actual_data += stream_.get_buffer().peek(intervals_[ind_right + 1] - (actual_index + actual_data.size()), actual_index + actual_data.size() - intervals_[0]);
+    if (intervals_.size() > 0) {
+        if (ind_right % 2 == 1) {
+            actual_data += stream_.get_buffer().peek(intervals_[ind_right + 1] - (actual_index + actual_data.size()), actual_index + actual_data.size() - stream_.bytes_read());
+        }
     }
 
     //Write actual_data to buffer
     //IN: actual_data, buffer, num_bytes_written
     //OUT: new_buffer, num_bytes_written
-    if (actual_index == intervals_[1]) {
+    if (actual_index == stream_.bytes_written()) {
         stream_.write(actual_data);
     } else {
-        stream_.get_buffer().resize(actual_index - intervals_[0], false);
+        stream_.get_buffer().resize(actual_index - stream_.bytes_read(), false);
         stream_.write(actual_data, false);
-        stream_.get_buffer().resize(intervals_[1] - intervals_[0], false);
+        stream_.get_buffer().resize(stream_.bytes_written() - stream_.bytes_read(), false);
     }
 
     //Recompute intervals
     //IN: intervals_, nearest boundaries
     //OUT: new_intervals
-    if (ind_right % 2 == 1) {
+    if (ind_right % 2 == 0) {
         intervals_.insert(intervals_.begin() + ind_right + 1, actual_index + actual_data.size());
     }
     intervals_.erase(intervals_.begin() + ind_left, intervals_.begin() + ind_right + 1);
-    if (ind_left % 2 == 0) {
+    if (ind_left % 2 == 1) {
         intervals_.insert(intervals_.begin() + ind_left, actual_index);
     }
 
@@ -110,7 +112,7 @@ void StreamReassembler::push_substring(const string &data, const size_t index, c
     //To be honest, I have no idea how eof works here,
     //Should I end input once receiving an eof? Or when obtaining a complete stream?
     //If there is no byte written, should the eof count?
-    if (eof_received_ && intervals_[1] == end_index_) {
+    if (eof_received_ && stream_.bytes_written() == end_index_) {
         //End input only when all data are written and eof is true
         stream_.end_input();
     }
@@ -119,7 +121,7 @@ void StreamReassembler::push_substring(const string &data, const size_t index, c
 
 size_t StreamReassembler::unassembled_bytes() const {
     size_t count = 0;
-    for (auto it = intervals_.cbegin() + 2; it != intervals_.cend(); it += 2) {
+    for (auto it = intervals_.cbegin() + 1; it != intervals_.cend(); it += 2) {
         count += (*(it+1)) - (*it);
     }
     return count;
