@@ -5,9 +5,13 @@
 #include "tcp_config.hh"
 #include "tcp_segment.hh"
 #include "wrapping_integers.hh"
+#include "timer.hh"
 
 #include <functional>
 #include <queue>
+
+
+enum class TCPSenderState { CLOSED, SYN_SENT, SYN_ACKED, FIN_SENT, FIN_ACKED, ERROR };
 
 //! \brief The "sender" part of a TCP implementation.
 
@@ -18,30 +22,36 @@
 class TCPSender {
   private:
     //! our initial sequence number, the number for our SYN.
-    WrappingInt32 _isn;
+    WrappingInt32 isn_;
 
     //! outbound queue of segments that the TCPSender wants sent
-    std::queue<TCPSegment> _segments_out{};
+    std::queue<TCPSegment> segments_out_{};
+    std::queue<TCPSegment> segments_record_{};
 
     //! retransmission timer for the connection
-    unsigned int _initial_retransmission_timeout;
+    unsigned int initial_retransmission_timeout_;
 
     //! outgoing stream of bytes that have not yet been sent
-    ByteStream _stream;
+    ByteStream stream_;
 
     //! the (absolute) sequence number for the next byte to be sent
-    uint64_t _next_seqno{0};
+    uint64_t next_seqno_{0};
+    uint64_t ackno_{0};
+    uint16_t window_size_{1};
+    TCPSenderState state_{TCPSenderState::CLOSED};
+    Timer timer_{};
+    unsigned int consecutive_retransmissions_{0};
 
   public:
     //! Initialize a TCPSender
     TCPSender(const size_t capacity = TCPConfig::DEFAULT_CAPACITY,
               const uint16_t retx_timeout = TCPConfig::TIMEOUT_DFLT,
-              const std::optional<WrappingInt32> fixed_isn = {});
+              const std::optional<WrappingInt32> fixedisn_ = {});
 
     //! \name "Input" interface for the writer
     //!@{
-    ByteStream &stream_in() { return _stream; }
-    const ByteStream &stream_in() const { return _stream; }
+    ByteStream &stream_in() { return stream_; }
+    const ByteStream &stream_in() const { return stream_; }
     //!@}
 
     //! \name Methods that can cause the TCPSender to send a segment
@@ -75,17 +85,17 @@ class TCPSender {
     //! \note These must be dequeued and sent by the TCPConnection,
     //! which will need to fill in the fields that are set by the TCPReceiver
     //! (ackno and window size) before sending.
-    std::queue<TCPSegment> &segments_out() { return _segments_out; }
+    std::queue<TCPSegment> &segments_out() { return segments_out_; }
     //!@}
 
     //! \name What is the next sequence number? (used for testing)
     //!@{
 
     //! \brief absolute seqno for the next byte to be sent
-    uint64_t next_seqno_absolute() const { return _next_seqno; }
+    uint64_t next_seqno_absolute() const { return next_seqno_; }
 
     //! \brief relative seqno for the next byte to be sent
-    WrappingInt32 next_seqno() const { return wrap(_next_seqno, _isn); }
+    WrappingInt32 next_seqno() const { return wrap(next_seqno_, isn_); }
     //!@}
 };
 

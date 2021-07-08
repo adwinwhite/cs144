@@ -25,7 +25,7 @@ void TCPReceiver::segment_received(const TCPSegment &seg) {
     if (!seg.header().syn) {
         --index;
     }
-    reassembler_.push_substring(seg.payload().copy(), index, seg.header().fin);
+    reassembler_.push_substring(string(seg.payload()), index, seg.header().fin);
 }
 
 optional<WrappingInt32> TCPReceiver::ackno() const {
