@@ -12,7 +12,8 @@ bool Timer::running() const {
 }
 
 bool Timer::expired() const {
-  return passed_ > expire_;
+  //Since it starts from 0, when passed_ equals expire_, it's regarded as expired
+  return passed_ >= expire_;
 }
 
 void Timer::stop() {
