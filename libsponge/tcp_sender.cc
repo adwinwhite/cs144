@@ -37,6 +37,14 @@ void TCPSender::fill_window() {
     //IN: stream_, segments_out_, segments_record_
     //OUT: stream_, segments_out_, segments_record_
     //
+    //If FIN has been sent , do nothing
+    if (next_seqno_absolute() == stream_.bytes_written() + 2) {
+        return;
+    }
+    //If window_size_ is 0 and it has happened consecutively, do nothing.
+    if (window_size_ == 0 && zero_window_size_segment_sent_) {
+        return;
+    }
     bool seg_sent = false;
     uint16_t remaining_window_size = window_size_ == 0 ? 1 : (window_size_ >= bytes_in_flight() ? window_size_ - bytes_in_flight() : window_size_);
     while (remaining_window_size > 0) {
@@ -59,7 +67,7 @@ void TCPSender::fill_window() {
         }
         if (stream_.eof() && next_seqno_absolute() < stream_.bytes_written() + 2) {
             //If there is no room for FIN in window, do not add FIN.
-            if (bytes_in_flight() + payload.size() < window_size_) {
+            if (payload.size() != remaining_window_size) {
                 seg.header().fin = true;
                 state_ = TCPSenderState::FIN_SENT;
             }
@@ -84,6 +92,10 @@ void TCPSender::fill_window() {
             segments_out_.push(seg);
             segments_record_.push(seg);
             seg_sent = true;
+            if (window_size_ == 0) {
+                zero_window_size_segment_sent_ = true;
+                break;
+            }
         } else {
             break;
         }
@@ -105,6 +117,7 @@ void TCPSender::ack_received(const WrappingInt32 ackno, const uint16_t window_si
     if (new_ackno <= ackno_) {
         return;
     }
+    zero_window_size_segment_sent_ = false;
     //Now it says new data are received
 
     //Remove segments that's been acked
@@ -129,13 +142,13 @@ void TCPSender::ack_received(const WrappingInt32 ackno, const uint16_t window_si
 void TCPSender::tick(const size_t ms_since_last_tick) {
     if (timer_.running()) {
         timer_.tick(ms_since_last_tick);
-    }
-    if (timer_.expired()) {
-        segments_out_.push(segments_record_.front());
-        if (window_size_ > 0) {
-            ++consecutive_retransmissions_;
+        if (timer_.expired()) {
+            segments_out_.push(segments_record_.front());
+            if (window_size_ > 0) {
+                ++consecutive_retransmissions_;
+            }
+            timer_.start(initial_retransmission_timeout_ * pow(2, consecutive_retransmissions_));
         }
-        timer_.start(initial_retransmission_timeout_ * pow(2, consecutive_retransmissions_));
     }
 }
 
