@@ -154,10 +154,9 @@ void TCPSender::tick(const size_t ms_since_last_tick) {
 
 unsigned int TCPSender::consecutive_retransmissions() const { return consecutive_retransmissions_; }
 
-void TCPSender::send_empty_segment() {
-    TCPHeader header{};
+void TCPSender::send_empty_segment(TCPHeader header) {
     header.seqno = next_seqno();
     TCPSegment seg{};
-    seg.parse(Buffer(header.serialize()));
+    seg.header() = header;
     segments_out_.push(seg);
 }
