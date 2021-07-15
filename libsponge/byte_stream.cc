@@ -71,6 +71,8 @@ bool ByteStream::eof() const { return ended_ && buf_.empty(); }
 
 bool ByteStream::error() const { return error_; }
 
+void ByteStream::set_error() { error_ = true; }
+
 size_t ByteStream::bytes_written() const { return num_bytes_written; }
 
 void ByteStream::_offset_bytes_written(const int64_t num) {

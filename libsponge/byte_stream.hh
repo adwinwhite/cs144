@@ -16,12 +16,12 @@ class ByteStream {
     bool ended_{};
 
     bool error_{};  //!< Flag indicating that the stream suffered an error.
-    bool eof_{};
+    // bool eof_{};
 
 
   public:
     //! Construct a stream with room for `capacity` bytes.
-    ByteStream(const size_t capacity) : buf_(capacity), num_bytes_read(0), num_bytes_written(0), ended_(false), error_(false), eof_{false} {};
+    ByteStream(const size_t capacity) : buf_(capacity), num_bytes_read(0), num_bytes_written(0), ended_(false), error_(false) {};
 
     CircularBuffer& get_buffer();
 

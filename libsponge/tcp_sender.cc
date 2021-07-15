@@ -37,10 +37,10 @@ void TCPSender::fill_window() {
     //IN: stream_, segments_out_, segments_record_
     //OUT: stream_, segments_out_, segments_record_
     //
-    //If FIN has been sent , do nothing
-    if (next_seqno_absolute() == stream_.bytes_written() + 2) {
-        return;
-    }
+    //If FIN has been sent , do nothing. That's wrong since you'd still need to send ack.
+    // if (next_seqno_absolute() == stream_.bytes_written() + 2) {
+        // return;
+    // }
     //If window_size_ is 0 and it has happened consecutively, do nothing.
     if (window_size_ == 0 && zero_window_size_segment_sent_) {
         return;
@@ -67,9 +67,12 @@ void TCPSender::fill_window() {
         }
         if (stream_.eof() && next_seqno_absolute() < stream_.bytes_written() + 2) {
             //If there is no room for FIN in window, do not add FIN.
-            if (payload.size() != remaining_window_size) {
+            //Add FIN does not need to be sent more than once.
+            if (payload.size() != remaining_window_size && (!fin_sent_)) {
                 seg.header().fin = true;
                 state_ = TCPSenderState::FIN_SENT;
+                fin_sent_ = true;
+                ++next_seqno_;
             }
         }
 
@@ -88,15 +91,16 @@ void TCPSender::fill_window() {
         //OUT: segments_out_, segments_record_
         seg.payload() = Buffer(std::move(payload));
         //If the segment occupies no segno, no need to send or save anything
-        if (seg.length_in_sequence_space() != 0) {
-            segments_out_.push(seg);
-            segments_record_.push(seg);
+        segments_out_.push(seg);
+        if (seg.length_in_sequence_space() > 0) {
             seg_sent = true;
-            if (window_size_ == 0) {
-                zero_window_size_segment_sent_ = true;
-                break;
-            }
-        } else {
+            segments_record_.push(seg);
+        }
+        if (window_size_ == 0) {
+            zero_window_size_segment_sent_ = true;
+            break;
+        }
+        if (seg.length_in_sequence_space() == 0) {
             break;
         }
         remaining_window_size = window_size_ - bytes_in_flight();
@@ -112,11 +116,11 @@ void TCPSender::fill_window() {
 //! \param window_size The remote receiver's advertised window size
 void TCPSender::ack_received(const WrappingInt32 ackno, const uint16_t window_size) {
     const uint64_t new_ackno = unwrap(ackno, isn_, ackno_);
-    window_size_ = window_size;
 
-    if (new_ackno <= ackno_) {
+    if (new_ackno < ackno_ || new_ackno > next_seqno_absolute()) {
         return;
     }
+    window_size_ = window_size;
     zero_window_size_segment_sent_ = false;
     //Now it says new data are received
 
@@ -125,13 +129,16 @@ void TCPSender::ack_received(const WrappingInt32 ackno, const uint16_t window_si
         segments_record_.pop();
     }
 
-    //Reset RTO
-    consecutive_retransmissions_ = 0;
-    //Stop timer if all outstanding segments are acked
-    if (segments_record_.size() == 0) {
-        timer_.reset();
-    } else {
-        timer_.start(initial_retransmission_timeout_);
+    //If new data are acked, reset the timer.
+    if (new_ackno > ackno_) {
+        //Reset RTO
+        consecutive_retransmissions_ = 0;
+        //Stop timer if all outstanding segments are acked
+        if (segments_record_.size() == 0) {
+            timer_.reset();
+        } else {
+            timer_.start(initial_retransmission_timeout_);
+        }
     }
 
     ackno_ = new_ackno;
@@ -155,8 +162,25 @@ void TCPSender::tick(const size_t ms_since_last_tick) {
 unsigned int TCPSender::consecutive_retransmissions() const { return consecutive_retransmissions_; }
 
 void TCPSender::send_empty_segment(TCPHeader header) {
+    if (header.fin && fin_sent_) {
+        //Do not send FIN twice.
+        return;
+    }
     header.seqno = next_seqno();
     TCPSegment seg{};
     seg.header() = header;
     segments_out_.push(seg);
+    if (seg.length_in_sequence_space() > 0) {
+        segments_record_.push(seg);
+        if (!timer_.running()) {
+            timer_.start(initial_retransmission_timeout_);
+        }
+    }
+    if (header.fin) {
+        fin_sent_ = true;
+        state_ = TCPSenderState::FIN_SENT;
+    }
+    if (header.fin || header.syn) {
+        ++next_seqno_;
+    }
 }

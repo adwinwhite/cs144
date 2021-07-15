@@ -42,6 +42,7 @@ class TCPSender {
     Timer timer_{};
     unsigned int consecutive_retransmissions_{0};
     bool zero_window_size_segment_sent_{false};
+    bool fin_sent_{false};
 
   public:
     //! Initialize a TCPSender
