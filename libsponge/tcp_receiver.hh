@@ -56,6 +56,8 @@ class TCPReceiver {
     //! \brief number of bytes stored but not yet reassembled
     size_t unassembled_bytes() const { return reassembler_.unassembled_bytes(); }
 
+    bool syn_received() const { return syn_received_; }
+
     //! \brief handle an inbound segment
     void segment_received(const TCPSegment &seg);
 

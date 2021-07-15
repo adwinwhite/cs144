@@ -29,7 +29,8 @@ uint64_t TCPSender::bytes_in_flight() const {
     return next_seqno_absolute() - ackno_;
 }
 
-void TCPSender::fill_window() {
+//If segment's length in seq space is 0, it should not be sent.
+bool TCPSender::fill_window() {
     //You may need to send multiple segments.
     //When you send new data, this function is called.
     //Read as many bytes as you can from the input stream.
@@ -43,7 +44,7 @@ void TCPSender::fill_window() {
     // }
     //If window_size_ is 0 and it has happened consecutively, do nothing.
     if (window_size_ == 0 && zero_window_size_segment_sent_) {
-        return;
+        return false;
     }
     bool seg_sent = false;
     uint16_t remaining_window_size = window_size_ == 0 ? 1 : (window_size_ >= bytes_in_flight() ? window_size_ - bytes_in_flight() : window_size_);
@@ -91,10 +92,10 @@ void TCPSender::fill_window() {
         //OUT: segments_out_, segments_record_
         seg.payload() = Buffer(std::move(payload));
         //If the segment occupies no segno, no need to send or save anything
-        segments_out_.push(seg);
         if (seg.length_in_sequence_space() > 0) {
             seg_sent = true;
             segments_record_.push(seg);
+            segments_out_.push(seg);
         }
         if (window_size_ == 0) {
             zero_window_size_segment_sent_ = true;
@@ -110,6 +111,7 @@ void TCPSender::fill_window() {
     if (seg_sent && !timer_.running()) {
         timer_.start(initial_retransmission_timeout_);
     }
+    return seg_sent;
 }
 
 //! \param ackno The remote receiver's ackno (acknowledgment number)

@@ -12,7 +12,6 @@ using namespace std;
 void TCPConnection::connect() {
     sender_.fill_window();
     send_segments();
-    active_ = true;
 }
 
 void TCPConnection::send_segments() {
@@ -35,7 +34,6 @@ void TCPConnection::unclean_shutdown() {
     sender_.send_empty_segment(header);
     sender_.stream_in().set_error();
     receiver_.stream_out().set_error();
-    active_ = false;
 }
 
 
@@ -56,6 +54,7 @@ void TCPConnection::end_input_stream() {
     header.fin = true;
     sender_.send_empty_segment(header);
     send_segments();
+    //whether to linger is decided by ???.
 }
 
 size_t TCPConnection::bytes_in_flight() const { return sender_.bytes_in_flight(); }
@@ -70,12 +69,24 @@ void TCPConnection::segment_received(const TCPSegment &seg) {
     if (seg.header().rst) {
         sender_.stream_in().set_error();
         receiver_.stream_out().set_error();
-        active_ = false;
         return;
     }
 
     //Notify receiver_
     receiver_.segment_received(seg);
+
+    //If syn is not received, ignore the segment.
+    if (!receiver_.syn_received()) {
+        return;
+    }
+
+
+
+    //Passive close
+    if (seg.header().fin && (!sender_.fin_sent())) {
+        linger_after_streams_finish_ = false;
+    }
+
 
     //Notify sender_
     if (seg.header().ack) {
@@ -83,19 +94,42 @@ void TCPConnection::segment_received(const TCPSegment &seg) {
     }
 
     //Reply
-    if (seg.length_in_sequence_space() > 0) {
-        sender_.fill_window();
+    //If fill_window sends nothing, then we send an empty segment.
+    if (!sender_.fill_window()) {
+        if (seg.length_in_sequence_space() > 0) {
+            sender_.send_empty_segment(TCPHeader{});
+        }
     }
     send_segments();
+
+    if (sender_.stream_in().eof() && sender_.next_seqno_absolute() == sender_.stream_in().bytes_written() + 2 && sender_.bytes_in_flight() == 0 &&
+            receiver_.stream_out().input_ended()) {
+        linger_started_ = true;
+    }
 }
 
-bool TCPConnection::active() const { return active_; }
+bool TCPConnection::active() const {
+    if (sender_.stream_in().error() || receiver_.stream_out().error()) {
+        return false;
+    }
+    // Active since created.
+    // if (sender_.next_seqno_absolute() == 0 && (!receiver_.ackno().has_value())) {
+        // return false;
+    // }
+    if (sender_.stream_in().eof() && sender_.next_seqno_absolute() == sender_.stream_in().bytes_written() + 2 && sender_.bytes_in_flight() == 0 &&
+            receiver_.stream_out().input_ended()) {
+        if ((linger_after_streams_finish_ && linger_done_) || (!linger_after_streams_finish_)) {
+            return false;
+        }
+    }
+    return true;
+}
 
 
 //! \param[in] ms_since_last_tick number of milliseconds since the last call to this method
 void TCPConnection::tick(const size_t ms_since_last_tick) {
     time_since_last_segment_received_ += ms_since_last_tick;
-    if (linger_after_streams_finish_) {
+    if (linger_started_ && linger_after_streams_finish_) {
         if (time_since_last_segment_received_ >= cfg_.rt_timeout * 10) {
             clean_shutdown();
         }
@@ -108,7 +142,8 @@ void TCPConnection::tick(const size_t ms_since_last_tick) {
 }
 
 void TCPConnection::clean_shutdown() {
-    active_ = false;
+    receiver_.stream_out().end_input();
+    linger_done_ = true;
 }
 
 size_t TCPConnection::time_since_last_segment_received() const { return time_since_last_segment_received_; }

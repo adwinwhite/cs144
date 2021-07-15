@@ -23,6 +23,10 @@ void TCPReceiver::segment_received(const TCPSegment &seg) {
     //Now that we have isn, push data to buffer.
     uint64_t index = unwrap(seg.header().seqno, isn_, reassembler_.stream_out().bytes_written());
     if (!seg.header().syn) {
+        //write at the seqno of SYN
+        if (index == 0) {
+            return;
+        }
         --index;
     }
     reassembler_.push_substring(string(seg.payload()), index, seg.header().fin);

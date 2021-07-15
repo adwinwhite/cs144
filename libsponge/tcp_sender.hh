@@ -66,11 +66,13 @@ class TCPSender {
     void send_empty_segment(TCPHeader header={});
 
     //! \brief create and send segments to fill as much of the window as possible
-    void fill_window();
+    bool fill_window();
 
     //! \brief Notifies the TCPSender of the passage of time
     void tick(const size_t ms_since_last_tick);
     //!@}
+    //
+    bool fin_sent() const { return fin_sent_; };
 
     //! \name Accessors
     //!@{
