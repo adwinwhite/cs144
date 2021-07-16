@@ -152,11 +152,14 @@ void TCPSender::tick(const size_t ms_since_last_tick) {
     if (timer_.running()) {
         timer_.tick(ms_since_last_tick);
         if (timer_.expired()) {
-            segments_out_.push(segments_record_.front());
             if (window_size_ > 0) {
                 ++consecutive_retransmissions_;
             }
-            timer_.start(initial_retransmission_timeout_ * pow(2, consecutive_retransmissions_));
+            //If max retx attempts is exceeded, then there is no need to send segment.
+            if (consecutive_retransmissions_ <= TCPConfig::MAX_RETX_ATTEMPTS) {
+                segments_out_.push(segments_record_.front());
+                timer_.start(initial_retransmission_timeout_ * pow(2, consecutive_retransmissions_));
+            }
         }
     }
 }

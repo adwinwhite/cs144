@@ -25,7 +25,9 @@ Address::Address(const sockaddr *addr, const size_t size) : _size(size) {
         throw runtime_error("invalid sockaddr size");
     }
 
-    memcpy(&_address.storage, addr, size);
+    if (addr != nullptr) {
+        memcpy(&_address.storage, addr, size);
+    }
 }
 
 //! Error category for getaddrinfo and getnameinfo failures.
