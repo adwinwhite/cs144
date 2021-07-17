@@ -181,11 +181,12 @@ void TCPSender::send_empty_segment(TCPHeader header) {
             timer_.start(initial_retransmission_timeout_);
         }
     }
-    if (header.fin) {
+    if (header.syn && next_seqno_ == 0) {
+        ++next_seqno_;
+    }
+    if (header.fin && (!fin_sent_)) {
+        ++next_seqno_;
         fin_sent_ = true;
         state_ = TCPSenderState::FIN_SENT;
-    }
-    if (header.fin || header.syn) {
-        ++next_seqno_;
     }
 }

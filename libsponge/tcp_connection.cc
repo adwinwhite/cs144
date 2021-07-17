@@ -50,11 +50,12 @@ size_t TCPConnection::remaining_outbound_capacity() const { return sender_.strea
 
 void TCPConnection::end_input_stream() {
     sender_.stream_in().end_input();
-    TCPHeader header{};
-    header.fin = true;
-    sender_.send_empty_segment(header);
+    //No need to send FIN when input ended.
+    // TCPHeader header{};
+    // header.fin = true;
+    // sender_.send_empty_segment(header);
+    sender_.fill_window();
     send_segments();
-    //whether to linger is decided by ???.
 }
 
 size_t TCPConnection::bytes_in_flight() const { return sender_.bytes_in_flight(); }
