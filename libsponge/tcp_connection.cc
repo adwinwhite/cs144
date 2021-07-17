@@ -103,8 +103,8 @@ void TCPConnection::segment_received(const TCPSegment &seg) {
     }
     send_segments();
 
-    if (sender_.stream_in().eof() && sender_.next_seqno_absolute() == sender_.stream_in().bytes_written() + 2 && sender_.bytes_in_flight() == 0 &&
-            receiver_.stream_out().input_ended()) {
+    if (sender_.stream_in().eof() && sender_.next_seqno_absolute() == sender_.stream_in().bytes_written() + 2 && sender_.fin_sent() && sender_.bytes_in_flight() == 0 &&
+            receiver_.stream_out().input_ended() && receiver_.fin_received()) {
         linger_started_ = true;
     }
 }

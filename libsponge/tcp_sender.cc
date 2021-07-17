@@ -26,6 +26,7 @@ TCPSender::TCPSender(const size_t capacity, const uint16_t retx_timeout, const s
     , stream_(capacity) {}
 
 uint64_t TCPSender::bytes_in_flight() const {
+    //Should I count SYN and FIN?
     return next_seqno_absolute() - ackno_;
 }
 

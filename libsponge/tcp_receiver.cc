@@ -7,6 +7,8 @@
 
 using namespace std;
 
+bool TCPReceiver::fin_received() const { return fin_received_; }
+
 void TCPReceiver::segment_received(const TCPSegment &seg) {
     //Check whether syn is sent
     if (seg.header().syn) {

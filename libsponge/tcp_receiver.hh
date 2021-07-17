@@ -30,6 +30,8 @@ class TCPReceiver {
     //!                 store in its buffers at any give time.
     TCPReceiver(const size_t capacity) : reassembler_(capacity), isn_(WrappingInt32(0)), syn_received_(false), fin_received_(false) {}
 
+    bool fin_received() const;
+
     //! \name Accessors to provide feedback to the remote TCPSender
     //!@{
 
