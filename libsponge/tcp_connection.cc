@@ -20,8 +20,9 @@ void TCPConnection::send_segments() {
         if (receiver_.ackno().has_value()) {
             seg.header().ack = true;
             seg.header().ackno = receiver_.ackno().value();
-            seg.header().win = receiver_.window_size();
         }
+        //set win no matter what
+        seg.header().win = receiver_.window_size();
         segments_out_.push(seg);
         sender_.segments_out().pop();
     }
@@ -135,6 +136,7 @@ void TCPConnection::tick(const size_t ms_since_last_tick) {
             clean_shutdown();
         }
     }
+
     sender_.tick(ms_since_last_tick);
     if (sender_.consecutive_retransmissions() > TCPConfig::MAX_RETX_ATTEMPTS) {
         unclean_shutdown();

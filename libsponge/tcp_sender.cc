@@ -30,6 +30,7 @@ uint64_t TCPSender::bytes_in_flight() const {
     return next_seqno_absolute() - ackno_;
 }
 
+
 //If segment's length in seq space is 0, it should not be sent.
 bool TCPSender::fill_window() {
     //You may need to send multiple segments.
@@ -67,25 +68,27 @@ bool TCPSender::fill_window() {
             seg.header().syn = true;
             state_ = TCPSenderState::SYN_SENT;
         }
-        if (stream_.eof() && next_seqno_absolute() < stream_.bytes_written() + 2) {
+
+        //Update next_seqno_abs
+        if (state_ == TCPSenderState::SYN_SENT || state_ == TCPSenderState::SYN_ACKED) {
+            next_seqno_abs_ = stream_.bytes_read() + 1;
+        } else if (state_ == TCPSenderState::FIN_SENT || state_ == TCPSenderState::FIN_ACKED) {
+            next_seqno_abs_ = stream_.bytes_read() + 2;
+        } else {
+            next_seqno_abs_ = stream_.bytes_read();
+        }
+
+        if (stream_.eof() && next_seqno_absolute() == stream_.bytes_written() + 1) {
             //If there is no room for FIN in window, do not add FIN.
             //Add FIN does not need to be sent more than once.
             if (payload.size() != remaining_window_size && (!fin_sent_)) {
                 seg.header().fin = true;
                 state_ = TCPSenderState::FIN_SENT;
                 fin_sent_ = true;
-                ++next_seqno_;
+                ++next_seqno_abs_;
             }
         }
 
-        //Update next_seqno_
-        if (state_ == TCPSenderState::SYN_SENT || state_ == TCPSenderState::SYN_ACKED) {
-            next_seqno_ = stream_.bytes_read() + 1;
-        } else if (state_ == TCPSenderState::FIN_SENT || state_ == TCPSenderState::FIN_ACKED) {
-            next_seqno_ = stream_.bytes_read() + 2;
-        } else {
-            next_seqno_ = stream_.bytes_read();
-        }
 
 
         //Send tcp segment
@@ -182,11 +185,11 @@ void TCPSender::send_empty_segment(TCPHeader header) {
             timer_.start(initial_retransmission_timeout_);
         }
     }
-    if (header.syn && next_seqno_ == 0) {
-        ++next_seqno_;
+    if (header.syn && next_seqno_abs_ == 0) {
+        ++next_seqno_abs_;
     }
     if (header.fin && (!fin_sent_)) {
-        ++next_seqno_;
+        ++next_seqno_abs_;
         fin_sent_ = true;
         state_ = TCPSenderState::FIN_SENT;
     }

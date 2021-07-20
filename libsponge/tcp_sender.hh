@@ -35,7 +35,7 @@ class TCPSender {
     ByteStream stream_;
 
     //! the (absolute) sequence number for the next byte to be sent
-    uint64_t next_seqno_{0};
+    uint64_t next_seqno_abs_{0};
     uint64_t ackno_{0};
     uint16_t window_size_{1};
     TCPSenderState state_{TCPSenderState::CLOSED};
@@ -96,10 +96,10 @@ class TCPSender {
     //!@{
 
     //! \brief absolute seqno for the next byte to be sent
-    uint64_t next_seqno_absolute() const { return next_seqno_; }
+    uint64_t next_seqno_absolute() const { return next_seqno_abs_; }
 
     //! \brief relative seqno for the next byte to be sent
-    WrappingInt32 next_seqno() const { return wrap(next_seqno_, isn_); }
+    WrappingInt32 next_seqno() const { return wrap(next_seqno_abs_, isn_); }
     //!@}
 };
 

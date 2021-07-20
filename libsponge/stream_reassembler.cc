@@ -1,5 +1,8 @@
 #include "stream_reassembler.hh"
 #include <algorithm>
+#include <iostream>
+
+
 
 // Dummy implementation of a stream reassembler.
 
@@ -12,7 +15,7 @@
 
 using namespace std;
 
-StreamReassembler::StreamReassembler(const size_t capacity) : intervals_(vector<uint64_t>(1, 0)), stream_(ByteStream(capacity)), end_index_(0), eof_received_(false) {}
+StreamReassembler::StreamReassembler(const size_t capacity) : intervals_(vector<uint64_t>(1, 0)), stream_(ByteStream{capacity}), end_index_(0), eof_received_(false) {}
 
 //! \details This function accepts a substring (aka a segment) of bytes,
 //! possibly out-of-order, from the logical stream, and assembles any newly
@@ -28,6 +31,7 @@ void StreamReassembler::push_substring(const string &data, const size_t index, c
     //intervals_[0] == bytes_read
     //intervals_[1] == bytes_written
     // intervals_[0] = stream_.bytes_read();
+
 
 
     //OUT: new_intervals, new_buffer, new_num_bytes_written

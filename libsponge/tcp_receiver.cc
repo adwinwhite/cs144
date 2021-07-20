@@ -39,7 +39,7 @@ optional<WrappingInt32> TCPReceiver::ackno() const {
     if (syn_received_) {
         return wrap(reassembler_.stream_out().bytes_written() + 1 + (reassembler_.stream_out().input_ended() ? 1 : 0), isn_);
     } else {
-        return {};
+        return nullopt;
     }
 }
 
